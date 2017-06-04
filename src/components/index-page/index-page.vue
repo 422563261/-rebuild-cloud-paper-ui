@@ -51,15 +51,17 @@
     },
     mounted () {
       let url = serverPath + '/websocket/getrooms';
-      axios.get(url, {
-        withCredentials: true
-      })
-        .then(res => {
-          res = res.data;
-          if (res.errcode === 0) {
-            this.roomList = res.rooms;
-          }
+      setInterval(() => {
+        axios.get(url, {
+          withCredentials: true
         })
+          .then(res => {
+            res = res.data;
+            if (res.errcode === 0) {
+              this.roomList = res.rooms;
+            }
+          })
+      }, 2000)
     },
     methods: {
       enterRoom (token) {

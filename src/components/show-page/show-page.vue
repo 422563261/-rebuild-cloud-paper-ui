@@ -4,7 +4,7 @@
       <header class="header">
         <div class="header__warp">
           <span @click="back">
-            <router-link to="/index-page">☁️云纸条</router-link>
+            <span>☁️云纸条</span>
           </span>
           <span class="header__warp--living" v-if="true">房间正在直播中</span>
           <span class="header__warp--stopping" v-if="false">当前房间尚未直播...</span>
@@ -266,8 +266,7 @@
       initHostVideo () {
         let video = this.$refs['video_host'];
         // 被动方接受视频流
-        this.socket.on('video_message', function (data) {
-          console.log('我收到东西了', data)
+        this.socket.on('video', function (data) {
           video.src = data.msg
         })
       },
@@ -332,10 +331,13 @@
       // 返回主页销毁房间
       back () {
         if (confirm('确定退出房间？')) {
-          let url = serverPath + '/token/destroy/' + this.token;
-          axios.get(url).then((res, req) => {
-            res = res.data;
-          })
+          if (this.id === 'owner') {
+            let url = serverPath + '/token/destroy/' + this.token;
+            // 销毁房间
+            axios.get(url)
+          }
+          this.socket.disconnect();
+          this.$router.push({path: '/'})
         }
       },
       // 分享按钮打开与关闭
@@ -373,11 +375,11 @@
         if (this.id === 'host') {
           let that = this;
           this.socket.on('message', function (data) {
-            console.log('我收到了message', data)
             that.$refs.paperReader.dispatch(data);
-          })
+          });
+          this.initHostVideo();
         } else {
-          // this.initOwnerVideo()
+          this.initOwnerVideo()
         }
       }
     },
