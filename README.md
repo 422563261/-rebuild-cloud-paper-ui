@@ -14,5 +14,8 @@ npm run dev
 # 打包上线
 npm run build
 
+# 本地测试 localhost:4000
+node app
+
 ```
 

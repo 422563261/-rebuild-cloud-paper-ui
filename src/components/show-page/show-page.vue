@@ -26,159 +26,302 @@
           </transition>
         </div>
       </header>
-      <section class="paint" id="paint" @mousemove.stop.prevent="mouseFollow($event)" ref="paint">
-        <span class="paint__tools--cursor"
-              ref="cursor"
-              :class="{pencil:pencilShow,eraser:eraserShow}"
-        ></span>
-        <div class="paint-board">
-          <section>
-            <div id="write" class="write" v-if="this.id==='owner'">
+      <div style="display: flex">
+        <div class="chatContainer">
+          <div class="video">
+            <video ref="video_owner" style="width: 100%" autoplay="true" controls="true" v-if="id==='owner'"></video>
+            <video ref="video_host" style="width: 100%" autoplay="true" controls="true" v-if="id==='host'"></video>
+          </div>
+          <div class="chat"
+               style="
+               position: relative;
+               width: 90%;
+               height: 400px;
+               margin: 50px auto 0;
+               border: 1px solid #ededed;
+               box-sizing: border-box;
+               "
+          >
+            <div class="get_message"
+                 ref="get_message"
+                 style="
+                 height: 375px;
+                 padding: 5px;
+                 padding-bottom: 0;
+                 margin-bottom: 5px;
+                 box-sizing: border-box;
+                 overflow-y: auto;
+                 font-size: 12px;
+                 line-height: 16px;
+                 "
+            >
+              <ul>
+                <li v-for="(item,index) in getMessageInfo"
+                    :key="index"
+                    class="chat-list"
+                    :class="{aside:aside(item)}"
+                    style="margin: 5px"
+                >
+                  <h1 class="time">{{item.time}}</h1>
+                  <p class="content" style="margin-top: 5px;padding:0 5px">{{item.content}}</p>
+                </li>
+              </ul>
             </div>
-            <div id="read" class="read" v-if="this.id==='host'">
+            <div class="send-message"
+                 style="
+                  position: absolute;
+                  bottom: 0;
+                  width: 100%;
+                  overflow: hidden;
+                  box-sizing: border-box;
+                  border: 1px solid #ededed;
+                  "
+            >
+              <input
+                type="text"
+                style="
+                   width: inherit;
+                   color: #333;
+                   font-size: 12px;
+                   line-height: 20px;
+                   height: 20px;
+                   box-sizing: border-box;
+                   padding: 2px 30px 2px 5px;
+                   background: #fafafa;
+                   "
+                v-model="sendMessageInfo"
+                @keydown.enter.stop="sendMessage"
+              />
+              <button
+                type="button"
+                style="
+                  position: absolute;
+                  top: 2px;
+                  right: 0px;
+                  width: 30px;
+                  height: 16px;
+                  line-height: 16px;
+                  color: gray;
+                  font-size: 12px !important;
+                  border-left: 1px solid grey;
+                  border-radius: 0;
+                  "
+                @click="sendMessage"
+              >发送
+              </button>
             </div>
-          </section>
+          </div>
         </div>
-        <aside class="paint__tool" v-if="this.id==='owner'">
-          <ul>
-            <li @click="adjust($event,'pencil')">
-              <img src="./pencil.png">
-              <div class="slider__range--container pencil" :class="{active: pencilShow}">
-                <input class="slider__vertical" type="range" min="1" max="6" v-model="pencilSize"/>
-                <div class="colorpicker"></div>
-              </div>
-            </li>
-            <li @click="adjust($event,'eraser')">
-              <img src="./eraser.png">
-              <div class="slider__range--container eraser" :class="{active: eraserShow}">
-                <input class="slider__vertical" type="range" min="1" max="6" v-model="eraserSize"/>
-              </div>
-            </li>
-            <li @click="adjust($event,'circle')">
-              <img src="./circle.png">
-              <div class="slider__range--container" :class="{active: circleShow}">
-                <input class="slider__vertical" type="range" min="1" max="6" v-model="eraserSize"/>
-                <div class="colorpicker"></div>
-              </div>
-            </li>
-            <li @click="adjust($event,'rectangle')">
-              <img src="./rectangle.png">
-              <div class="slider__range--container" :class="{active: rectangleShow}">
-                <input class="slider__vertical" type="range" min="1" max="6" v-model="eraserSize"/>
-                <div class="colorpicker"></div>
-              </div>
-            </li>
-            <li>
-              <img src="./clean.png">
-            </li>
-          </ul>
-        </aside>
-      </section>
+        <section class="paint" id="paint">
+          <div class="paint-board">
+            <section>
+              <paper-writter v-if="id==='owner'"
+                             ref="paperWritter"
+                             :width="1024"
+                             :height="670"
+                             :type="peaDrawType"
+                             :size="toolSize"
+                             :color="peaDrawColor"
+                             @draw="sendDrawEvent2ServerUseSocket"
+              ></paper-writter>
+              <paper-reader v-if="this.id==='host'"
+                            ref="paperReader"
+                            :width="1024"
+                            :height="670"
+              ></paper-reader>
+            </section>
+          </div>
+          <aside class="paint__tool" v-if="id==='owner'">
+            <ul>
+              <li @click="adjust($event,'pencil')">
+                <img src="./pencil.png">
+                <div class="slider__range--container pencil" :class="{active: pencilShow}">
+                  <input class="slider__vertical" type="range" min="1" max="6" v-model="toolSize"/>
+                  <div class="colorpicker"></div>
+                </div>
+              </li>
+              <li @click="adjust($event,'eraser')">
+                <img src="./eraser.png">
+                <div class="slider__range--container eraser" :class="{active: eraserShow}">
+                  <input class="slider__vertical" type="range" min="1" max="6" v-model="toolSize"/>
+                </div>
+              </li>
+              <li @click="adjust($event,'circle')">
+                <img src="./circle.png">
+                <div class="slider__range--container" :class="{active: circleShow}">
+                  <input class="slider__vertical" type="range" min="1" max="6" v-model="toolSize"/>
+                  <div class="colorpicker"></div>
+                </div>
+              </li>
+              <li @click="adjust($event,'rectangle')">
+                <img src="./rectangle.png">
+                <div class="slider__range--container" :class="{active: rectangleShow}">
+                  <input class="slider__vertical" type="range" min="1" max="6" v-model="toolSize"/>
+                  <div class="colorpicker"></div>
+                </div>
+              </li>
+              <li @click="peaClearCanvas">
+                <img src="./clean.png">
+              </li>
+            </ul>
+          </aside>
+        </section>
+      </div>
     </main>
   </div>
 </template>
 <script type="text/ecmascript-6">
   import Clipboard from 'clipboard'
-  import { Position } from '@/common/js/libs'
-  import PaperWritter from '@/common/js/paper_writter'
-  import PaperReader from '@/common/js/paper_reader'
-  import { mapState } from 'vuex'
+  import {Position} from '@/common/js/libs'
   import axios from 'axios'
+  import PaperWritter from '../paper/paper-writter.vue';
+  import PaperReader from '../paper/paper-reader.vue';
+  import serverPath from '@/api/server-path';
+  import {urlParse} from '@/common/js/util'
   export default {
     name: 'show-page',
     data () {
       return {
         shareShow: false,
         tips: '点击复制令牌号',
-        sendMessage: [],
-        getMessage: [],
         socket: '',
-        reader: '',
         pencilShow: false,
         eraserShow: false,
         circleShow: false,
         rectangleShow: false,
         paint: true,
         widthDiff: '',
-        pencilSize: 5,
-        eraserSize: 5
+        toolSize: 1,
+        // pea3nut
+        peaSocketRec: null,
+        peaDrawType: null,
+        peaDrawSize: null,
+        peaDrawColor: null,
+        id: (() => urlParse().id)(),
+        token: (() => urlParse().token)(),
+        sendMessageInfo: '',
+        getMessageInfo: []
       }
     },
     mounted () {
+      window.SHOW_PAGE_VM = this;
+      this.socket = io.connect(serverPath);
       this.$nextTick(() => {
+        // 初始化粘贴板
         this.initCopyBoard();
-        // 等待vuex数据更新
-        let time = setInterval(() => {
-          if (this.id !== '') {
-            clearInterval(time);
-            this.justify();
-            this.initColorBoard();
-          }
-        }, 200)
-      })
-    },
-    watch: {
-      // owner的画板数据改变实时传输
-      sendMessage (newValue) {
-        this.socket.emit('message', JSON.stringify(newValue));
-      },
-      // host的画板数据实时接收
-      getMessage (newValue) {
-        this.reader.message = newValue;
-        this.reader.draw();
-      },
-      // 改变笔刷大小
-      pencilSize (newValue) {
-        this.$refs['cursor'].style.height = `${newValue}px`;
-        this.$refs['cursor'].style.width = `${newValue}px`;
-      },
-      // 改变橡皮大小
-      eraserSize (newValue) {
-        this.$refs['cursor'].style.height = `${newValue}px`;
-        this.$refs['cursor'].style.width = `${newValue}px`;
-      }
-    },
-    computed: {
-      ...mapState({
-        id: (state) => state.id,
-        token: (state) => state.token
+        // 判断身份
+        this.justify();
+        // 初始化颜色板
+        this.initColorBoard();
+        // 初始化聊天室
+        this.getMessage();
       })
     },
     methods: {
+      // 聊天aside class
+      aside (item) {
+        return this.id === item.id;
+      },
+      getTime () {
+        let date = new Date();
+        return date.toLocaleTimeString()
+      },
+      sendMessage () {
+        this.socket.emit('chat', {
+          id: this.id,
+          time: `${this.id} (${this.getTime()})`,
+          content: this.sendMessageInfo
+        });
+        this.sendMessageInfo = ''
+      },
+      getMessage () {
+        const that = this;
+        this.socket.on('chat', function (data) {
+          that.getMessageInfo.push(data);
+          that.$nextTick(() => {
+            let em = that.$refs['get_message'];
+            if (em.clientHeight !== em.scrollTop) {
+              em.scrollTop = em.clientHeight;
+            }
+          })
+        })
+      },
+      initOwnerVideo () {
+        let that = this;
+        let video = this.$refs['video_owner'];
+        let media_video = navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: {
+            width: {ideal: 1280},
+            height: {ideal: 720},
+            facingMode: "user"
+          }
+        });
+        // 主动方发送视频流
+        media_video.then(function (mediaStream) {
+          video.src = window.URL.createObjectURL(mediaStream);
+          that.socket.emit('video', {msg: video.src});
+        });
+      },
+      initHostVideo () {
+        let video = this.$refs['video_host'];
+        // 被动方接受视频流
+        this.socket.on('video_message', function (data) {
+          console.log('我收到东西了', data)
+          video.src = data.msg
+        })
+      },
+      peaClearCanvas(){
+        this.$refs.paperWritter.clear();
+      },
       // 初始化画板
       initColorBoard () {
         for (let em of $('.colorpicker')) {
           $(em).ClassyColor({
             color: '#A98C61',
-            colorSpace: 'rgba',
+            colorSpace: 'rgb',
             labels: true,
             staticComponents: true,
-            displayColor: 'css'
+            displayColor: 'css',
+          }).on('newcolor', (event, data) => {
+            this.peaDrawColor = data.toString();
           });
         }
       },
       // 调整画笔和橡皮大小事件
       adjust (event, name) {
+        let elt = event.target;
+        while (elt.tagName.toLowerCase() !== 'body') {
+          if (elt.className.indexOf('slider__range--container') !== -1) {
+            return;
+          }
+          elt = elt.parentNode;
+        }
+
         switch (name) {
           case 'pencil':
+            this.peaDrawType = 'pen';
             this.pencilShow = !this.pencilShow;
             this.eraserShow = false;
             this.circleShow = false;
             this.rectangleShow = false;
             break;
           case 'eraser':
+            this.peaDrawType = 'eraser';
             this.eraserShow = !this.eraserShow;
             this.pencilShow = false;
             this.circleShow = false;
             this.rectangleShow = false;
             break;
           case 'circle':
+            this.peaDrawType = 'ellipse';
             this.circleShow = !this.circleShow;
             this.pencilShow = false;
             this.eraserShow = false;
             this.rectangleShow = false;
             break;
           case 'rectangle' :
+            this.peaDrawType = 'rect';
             this.rectangleShow = !this.rectangleShow;
             this.pencilShow = false;
             this.eraserShow = false;
@@ -186,25 +329,12 @@
             break;
         }
       },
-      // 鼠标跟随移动
-      mouseFollow (event) {
-        if (!this.widthDiff) {
-          this.widthDiff = (window.innerWidth - this.$refs['paint'].offsetWidth) /
-            2;
-        }
-        let topX = event.clientY - 70;
-        let leftX = event.clientX - this.widthDiff;
-        this.$refs['cursor'].style.top = `${topX}px`;
-        this.$refs['cursor'].style.left = `${leftX}px`;
-      },
       // 返回主页销毁房间
       back () {
         if (confirm('确定退出房间？')) {
-          let url = 'http://localhost:4000/token/destroy/' + this.token;
-          // let url = 'http://10.19.220.110:4000/token/destroy/' + this.token;
+          let url = serverPath + '/token/destroy/' + this.token;
           axios.get(url).then((res, req) => {
             res = res.data;
-            console.log('房间已销毁');
           })
         }
       },
@@ -215,28 +345,11 @@
           this.tips = '点击复制令牌号';
         }, 500);
       },
-      // 铅笔按钮打开与关闭
-      togglePencil () {
-        this.paint = true;
-        this.pencilShow = !this.pencilShow;
-        if (this.eraserShow) {
-          this.eraserShow = false;
-        }
-      },
-      // 橡皮按钮打开与关闭
-      toggleEraser () {
-        this.paint = false;
-        this.eraserShow = !this.eraserShow;
-        if (this.pencilShow) {
-          this.pencilShow = false;
-        }
-      },
       // 分享界面关闭，监听空白区域
       shareHide (event) {
         if (!this.shareShow) {
           return
         }
-        console.log(event.target.className)
         if (event.target.className === 'container' || event.target.parentNode.className === 'write') {
           this.shareShow = false;
           setTimeout(() => {
@@ -251,43 +364,40 @@
           this.tips = '复制成功，快去分享吧'
         })
       },
+      // 向服务器发送数据
+      sendDrawEvent2ServerUseSocket(){
+        this.socket.emit('message', ...arguments);
+      },
       // 判断房主还是宾客
       justify () {
-        // let url = 'http://10.19.220.110:4000/';
-        let url = 'http://localhost:4000';
-        let socket = io.connect(url);
-        console.log('connect socket');
-        this.socket = socket;
-        if (this.id === 'owner') {
-          let writter = new PaperWritter({
-            'el': document.getElementById('write'),
-            'height': 670,
-            'width': 1024,
-            'url': 'server',
-            'message': this.sendMessage
-          });
-        } else if (this.id === 'host') {
+        if (this.id === 'host') {
           let that = this;
-          this.reader = new PaperReader({
-            'el': document.getElementById('read'),
-            'height': 670,
-            'width': 1024,
-            'url': 'server',
-            'message': this.getMessage
-          });
-          socket.on('message', function (data) {
-            that.getMessage = JSON.parse(data);
+          this.socket.on('message', function (data) {
+            console.log('我收到了message', data)
+            that.$refs.paperReader.dispatch(data);
           })
+        } else {
+          // this.initOwnerVideo()
         }
       }
+    },
+    components: {
+      'paper-reader': PaperReader,
+      'paper-writter': PaperWritter,
     }
   }
 </script>
-<style lang="stylus" rel="stylesheet/stylus" scoped>
+<style scoped>
+  #paint > span {
+    display: none !important;
+  }
+</style>
+<style lang="stylus" rel="stylesheet/stylus" type="text/stylus" scoped>
   .show-page
-  // 房间页样式文件
+    .aside
+      text-align right
     button, input
-      border: none
+      border none
       outline: none
       background: none
       font-family: 'Open Sans', Helvetica, Arial, sans-serif
@@ -436,10 +546,14 @@
           background: #d4af7a
           width: 50%
           box-sizing border-box
+      .chatContainer
+        flex 0 0 251px
+        with 251px
       .paint
-        width: 1024px
+        min-width: 1024px
+        flex 1
         height 100%
-        margin 0 auto
+        margin 0 0 auto auto
         display: block
         position relative
         z-index: 1
@@ -491,7 +605,7 @@
       100%
         top: 0px
 </style>
-<style lang="stylus" rel="stylesheet/stylus" scoped>
+<style lang="stylus" rel="stylesheet/stylus" type="text/stylus" scoped>
   #room {
     .paint {
       .paint__tools--cursor {

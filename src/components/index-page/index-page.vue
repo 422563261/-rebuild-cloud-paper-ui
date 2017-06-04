@@ -40,54 +40,56 @@
 <script type="text/ecmascript-6">
   import axios from 'axios'
   import * as type from '@/store/mutation-types'
+  import serverPath from '@/api/server-path'
   export default {
     name: 'index-page',
     data () {
       return {
         roomList: [],
-        inputToken: ''
+        inputToken: '',
       }
     },
     mounted () {
-      let url = 'http://10.19.221.23:4000/websocket/getrooms';
-      axios.get(url).then((res, req) => {
-        res = res.data;
-        if (res.errcode === 0) {
-          this.roomList = res.rooms;
-        }
+      let url = serverPath + '/websocket/getrooms';
+      axios.get(url, {
+        withCredentials: true
       })
-    },
-    methods: {
-      changeId (newValue) {
-        this.$store.commit(type.CHANGE_ID, newValue);
-      },
-      changeToken (newValue) {
-        this.$store.commit(type.CHANGE_TOKEN, newValue);
-      },
-      enterRoom (token) {
-        let url = 'http://10.19.221.23:4000/websocket/connect/' + token;
-        axios.get(url).then((res, req) => {
-          if (res.data.errcode === 0) {
-            this.$router.push({path: '/show-page'})
-          } else {
-            console.log('error');
-          }
-        })
-      },
-      createRoom () {
-        let url = 'http://localhost:4000/token/create';
-        axios.get(url, {
-          withCredentials: true
-        }).then((res, req) => {
+        .then(res => {
           res = res.data;
           if (res.errcode === 0) {
-            this.changeId('owner');
-            this.changeToken(res.token);
-            this.$router.push({path: '/show-page'})
-          } else {
-            console.log('error');
+            this.roomList = res.rooms;
           }
         })
+    },
+    methods: {
+      enterRoom (token) {
+        let url = serverPath + '/websocket/connect/' + token;
+        axios.get(url, {
+          withCredentials: true
+        })
+          .then(res => {
+            if (res.data.errcode === 0) {
+              this.$router.push({path: `/show-page?id=host`})
+            } else {
+              throw new Erro('error')
+            }
+          })
+          .catch(err => console.error(err))
+      },
+      createRoom () {
+        let url = serverPath + '/token/create';
+        axios.get(url, {
+          withCredentials: true
+        })
+          .then(res => {
+            res = res.data;
+            if (res.errcode === 0) {
+              this.$router.push({path: `/show-page?id=owner&token=${res.token}`})
+            } else {
+              throw new Erro('error')
+            }
+          })
+          .catch(err => console.error(err))
       },
       titleShadow (event) {
         const title = document.querySelector('.container#index__roomList .header__container--title');
@@ -116,6 +118,7 @@
   .roomlist {
     height: 100%;
   }
+
   .container#index__roomList {
     overflow: hidden;
     width: 100vw;
