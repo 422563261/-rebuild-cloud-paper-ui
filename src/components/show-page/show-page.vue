@@ -29,8 +29,10 @@
       <div style="display: flex">
         <div class="chatContainer">
           <div class="video">
-            <video ref="video_owner" style="width: 100%" autoplay="true" controls="true" v-if="id==='owner'"></video>
-            <video ref="video_host" style="width: 100%" autoplay="true" controls="true" v-if="id==='host'"></video>
+            <video ref="video_owner" style="width: 100%" autoplay="true" controls="true" v-if="id==='owner'"
+                   id="ownerVideo"></video>
+            <video ref="video_host" style="width: 100%" autoplay="true" controls="true" v-if="id==='host'"
+                   id="hostVideo"></video>
           </div>
           <div class="chat"
                style="
@@ -172,12 +174,12 @@
 </template>
 <script type="text/ecmascript-6">
   import Clipboard from 'clipboard'
-  import {Position} from '@/common/js/libs'
+  import { Position } from '@/common/js/libs'
   import axios from 'axios'
   import PaperWritter from '../paper/paper-writter.vue';
   import PaperReader from '../paper/paper-reader.vue';
   import serverPath from '@/api/server-path';
-  import {urlParse} from '@/common/js/util'
+  import { urlParse } from '@/common/js/util'
   export default {
     name: 'show-page',
     data () {
@@ -200,13 +202,20 @@
         id: (() => urlParse().id)(),
         token: (() => urlParse().token)(),
         sendMessageInfo: '',
-        getMessageInfo: []
+        getMessageInfo: [],
+        pc: '',
+        media_video: ''
       }
     },
     mounted () {
       window.SHOW_PAGE_VM = this;
       this.socket = io.connect(serverPath);
       this.$nextTick(() => {
+        this.media_video = navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: true
+        });
+        this.webRtc();
         // 初始化粘贴板
         this.initCopyBoard();
         // 判断身份
@@ -217,7 +226,63 @@
         this.getMessage();
       })
     },
+    computed: {
+      PeerConnection () {
+        return (window.PeerConnection ||
+        window.webkitPeerConnection00 ||
+        window.webkitRTCPeerConnection ||
+        window.mozRTCPeerConnection);
+      }
+    },
     methods: {
+      // webRTC
+      webRtc () {
+        let that = this;
+        this.pc = new this.PeerConnection();
+        //发送ICE候选到其他客户端
+        this.pc.onicecandidate = event => {
+          that.socket.emit('video', JSON.stringify({
+            "event": "__ice_candidate",
+            "data": {
+              "candidate": event.candidate
+            }
+          }));
+        };
+        let sendAnswerFn = desc => {
+          that.pc.setLocalDescription(desc);
+          that.socket.emit('video', JSON.stringify({
+            "event": "__answer",
+            "data": {
+              "sdp": desc
+            }
+          }));
+        };
+
+        this.socket.on('video', event => {
+          console.log('我收到video数据了')
+          let json = JSON.parse(event);
+          //如果是一个ICE的候选，则将其加入到PeerConnection中，否则设定对方的session描述为传递过来的描述
+          if (json.event === "__ice_candidate") {
+            that.pc.addIceCandidate(new RTCIceCandidate(json.data.candidate));
+          } else {
+            that.pc.setRemoteDescription(new RTCSessionDescription(json.data.sdp));
+            // 如果是一个offer，那么需要回复一个answer
+            if (json.event === "__offer") {
+              setTimeout(() => {
+                that.pc.createAnswer(sendAnswerFn, error => {
+                  console.log('Failure callback: ' + error);
+                });
+              }, 500)
+            }
+          }
+        })
+        this.socket.on('refresh', data => {
+          if (that.id === 'owner') {
+            console.log('owner刷新')
+            that.initOwnerVideo()
+          }
+        })
+      },
       // 聊天aside class
       aside (item) {
         return this.id === item.id;
@@ -236,7 +301,7 @@
       },
       getMessage () {
         const that = this;
-        this.socket.on('chat', function (data) {
+        this.socket.on('chat', data => {
           that.getMessageInfo.push(data);
           that.$nextTick(() => {
             let em = that.$refs['get_message'];
@@ -247,28 +312,40 @@
         })
       },
       initOwnerVideo () {
+        console.log('初始化一次主人')
         let that = this;
-        let video = this.$refs['video_owner'];
-        let media_video = navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: {
-            width: {ideal: 1280},
-            height: {ideal: 720},
-            facingMode: "user"
-          }
-        });
+        // let video = this.$refs['video_owner'];
+        let video = document.getElementById('ownerVideo')
         // 主动方发送视频流
-        media_video.then(function (mediaStream) {
+        this.media_video.then(mediaStream => {
           video.src = window.URL.createObjectURL(mediaStream);
-          that.socket.emit('video', {msg: video.src});
+          let sendOfferFn = desc => {
+            that.pc.setLocalDescription(desc);
+            that.socket.emit('video', JSON.stringify({
+              "event": "__offer",
+              "data": {
+                "sdp": desc
+              }
+            }));
+          };
+          that.pc.addStream(mediaStream);
+          that.pc.createOffer(sendOfferFn, error => {
+            console.log(error)
+          });
         });
       },
       initHostVideo () {
-        let video = this.$refs['video_host'];
+        // let video = this.$refs['video_host'];
+        let video = document.getElementById('hostVideo')
         // 被动方接受视频流
-        this.socket.on('video', function (data) {
-          video.src = data.msg
-        })
+//        this.socket.on('video', function (data) {
+//          video.src = data.msg
+//        })
+        //如果检测到媒体流连接到本地，将其绑定到一个video标签上输出
+        this.pc.onaddstream = event => {
+          video.src = URL.createObjectURL(event.stream);
+          console.log(video.src)
+        };
       },
       peaClearCanvas(){
         this.$refs.paperWritter.clear();
@@ -374,7 +451,7 @@
       justify () {
         if (this.id === 'host') {
           let that = this;
-          this.socket.on('message', function (data) {
+          this.socket.on('message', data => {
             that.$refs.paperReader.dispatch(data);
           });
           this.initHostVideo();

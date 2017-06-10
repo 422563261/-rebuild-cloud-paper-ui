@@ -61,7 +61,7 @@
               this.roomList = res.rooms;
             }
           })
-      }, 2000)
+      }, 1000)
     },
     methods: {
       enterRoom (token) {
